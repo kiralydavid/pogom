@@ -7,6 +7,10 @@ import time
 from sys import maxint
 import collections
 import cProfile
+import matplotlib.path as mpl_path
+
+from . import config
+
 from geographiclib.geodesic import Geodesic
 
 from pgoapi import PGoApi
@@ -28,6 +32,11 @@ def set_cover():
     lat = SearchConfig.ORIGINAL_LATITUDE
     lng = SearchConfig.ORIGINAL_LONGITUDE
 
+    if len(config['AREA_POLYGON']) > 0:
+        poly = mpl_path.Path(config['AREA_POLYGON'])
+    else:
+        poly = None
+
     d = math.sqrt(3) * 100
     points = [[{'lat2': lat, 'lon2': lng, 's': 0}]]
 
@@ -39,6 +48,11 @@ def set_cover():
             p = points[i - 1][(j - j / i - 1 + (j % i == 0))]
             p_new = Geodesic.WGS84.Direct(p['lat2'], p['lon2'], (j+i-1)/i * 60, d)
             p_new['s'] = Geodesic.WGS84.Inverse(p_new['lat2'], p_new['lon2'], lat, lng)['s12']
+            p_new['show'] = True
+
+            if poly is not None and not poly.contains_point((p_new['lat2'], p_new['lon2'])):
+                p_new['show'] = False
+
             points[i].append(p_new)
 
             if p_new['s'] > SearchConfig.RADIUS:
@@ -48,7 +62,7 @@ def set_cover():
             break
 
     cover = [{"lat": p['lat2'], "lng": p['lon2']}
-             for sublist in points for p in sublist if p['s'] < SearchConfig.RADIUS]
+             for sublist in points for p in sublist if p['s'] < SearchConfig.RADIUS and p.get('show', False)]
     SearchConfig.COVER = cover
 
 
